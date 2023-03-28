@@ -30,8 +30,9 @@ class TagUpdateWorker(QThread):
 
         while not self.isInterruptionRequested():
             for i, tag in enumerate(self.tags):
-                value = read_tag(plc, tag)
-                self.update_tag_signal.emit(i, str(value))
+                # value = read_tag(plc, tag)
+                # self.update_tag_signal.emit(i, str(value))
+                pass
             time.sleep(1)
 
         plc.disconnect()
@@ -84,7 +85,6 @@ class MainWindow(QMainWindow):
 
         self.layout = QVBoxLayout(self.main_widget)
 
-
         self.tag_input_layout = QHBoxLayout()
         self.layout.addLayout(self.tag_input_layout)
 
@@ -92,20 +92,25 @@ class MainWindow(QMainWindow):
         self.settings_button.clicked.connect(self.open_settings_dialog)
         self.tag_input_layout.addWidget(self.settings_button)
 
+        supported_datatypes = ["Memory", "Datablock"]
+        self.type_combo_box = QComboBox()
+        self.tag_input_layout.addWidget(self.type_combo_box)
+        self.type_combo_box.addItems(supported_datatypes)
+
         self.name_label = QLabel("Name:")
         self.tag_input_layout.addWidget(self.name_label)
 
         self.name_input = QLineEdit()
         self.tag_input_layout.addWidget(self.name_input)
 
-        self.type_label = QLabel("Type:")
-        self.tag_input_layout.addWidget(self.type_label)
+        self.address_label = QLabel("Address:")
+        self.tag_input_layout.addWidget(self.address_label)
 
-        self.type_input = QLineEdit()
-        self.tag_input_layout.addWidget(self.type_input)
+        self.address_input = QLineEdit()
+        self.tag_input_layout.addWidget(self.address_input)
 
-        supported_datatypes = ["bool", "byte", "word", "dword", "int", "dint", "real"]
-
+        supported_datatypes = ["Bool", "Byte", "Word", "DWord", "LWord", "SInt", "Int", "DInt", "LInt", "USInt", "UInt", "UDInt", "ULInt", "Real", "LReal", "Time", "LTime", "Date", "TIME_OF_DAY", "DATE_AND_TIME", "Char", "WChar", "STring", "WSTring", "Array", "Struct"]
+        
         self.type_combo_box = QComboBox()
         self.tag_input_layout.addWidget(self.type_combo_box)
         self.type_combo_box.addItems(supported_datatypes)
@@ -116,19 +121,19 @@ class MainWindow(QMainWindow):
 
         self.remove_button = QPushButton("Remove Tag")
         self.tag_input_layout.addWidget(self.remove_button)
-        self.remove_button.clicked.connect(self.remove_tag)
+        # self.remove_button.clicked.connect(self.remove_tag)
 
         self.start_button = QPushButton("Start Reading")
         self.tag_input_layout.addWidget(self.start_button)
-        self.start_button.clicked.connect(self.start_reading)
+        # self.start_button.clicked.connect(self.start_reading)
 
         self.stop_button = QPushButton("Stop Reading")
         self.tag_input_layout.addWidget(self.stop_button)
-        self.stop_button.clicked.connect(self.stop_reading)
+        # self.stop_button.clicked.connect(self.stop_reading)
 
         self.save_button = QPushButton(QIcon("floppy_disk_icon.svg"), "Save Tags")
         self.tag_input_layout.addWidget(self.save_button)
-        self.save_button.clicked.connect(self.save_tags)
+        # self.save_button.clicked.connect(self.save_tags)
 
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
@@ -136,19 +141,19 @@ class MainWindow(QMainWindow):
         self.tag_table = QTableWidget()
         self.layout.addWidget(self.tag_table)
         self.tag_table.setColumnCount(4)
-        self.tag_table.setHorizontalHeaderLabels(["IP", "Name", "Type", "Value"])
+        self.tag_table.setHorizontalHeaderLabels(["Name", "Address", "Type", "Value"])
         self.tag_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
 
         self.tag_update_worker = TagUpdateWorker()
-        self.tag_update_worker.update_tag_signal.connect(self.update_tag_value)
-        self.tag_update_worker.connection_status_signal.connect(self.update_connection_status)
+        # self.tag_update_worker.update_tag_signal.connect(self.update_tag_value)
+        # self.tag_update_worker.connection_status_signal.connect(self.update_connection_status)
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Disconnected")
 
-        self.load_settings()
-        self.load_tags()
+        # self.load_settings()
+        # self.load_tags()
 
         # self.timer = QTimer()
         # self.timer.timeout.connect(self.check_connection)
@@ -185,111 +190,7 @@ class MainWindow(QMainWindow):
             self.tags.append(tag)
             self.add_tag_to_table(tag)
 
-    def remove_tag(self):
-        '''Removes a tag from the table'''
-        selected_rows = self.tag_table.selectionModel().selectedRows()
-        for index in sorted(selected_rows, reverse=True):
-            row = index.row()
-            del self.tags[row]
-            self.tag_table.removeRow(row)
 
-    def stop_reading(self):
-        '''Stops reading the tags'''
-        self.tag_update_worker.terminate()
-        self.start_button.setEnabled(True)
-        self.stop_button.setEnabled(False)
-        self.status_bar.showMessage("Disconnected from PLC")
-
-    def start_reading(self):
-        '''Starts reading the tags'''
-        self.tag_update_worker.start()
-        self.start_button.setEnabled(False)
-        self.stop_button.setEnabled(True)
-
-    def update_connection_status(self, connected):
-        ''' Updates the connection status in the status bar'''
-        if connected:
-            self.status_bar.showMessage(f"Connected to {IP_ADDRESS}")
-        elif not connected and not self.start_button.isEnabled():
-            self.status_bar.showMessage(f"Connection to {IP_ADDRESS} failed")
-        else:
-            self.status_bar.showMessage("Disconnected")
-
-    def update_tag_value(self, index, value):
-        '''Updates the value of a tag in the table'''
-        self.tag_table.setItem(index, 2, QTableWidgetItem(value))
-
-    def save_settings(self):
-        ''' Saves the settings to the registry '''
-        settings = QSettings("testBench.cc", "readMemory")
-        settings.setValue("ip_address", IP_ADDRESS)
-        settings.setValue("rack", RACK)
-        settings.setValue("slot", SLOT)
-
-    def load_settings(self):
-        ''' Loads the settings from the registry '''
-        settings = QSettings("testBench.cc", "readMemory")
-        global IP_ADDRESS, RACK, SLOT
-        IP_ADDRESS = settings.value("ip_address", IP_ADDRESS)
-        RACK = int(settings.value("rack", RACK))
-        SLOT = int(settings.value("slot", SLOT))
-
-    def save_tags(self):
-        try:
-            settings = QSettings("testBench.cc", "readMemory")
-            self.update_global_tags()
-            serializable_tags = [tag.copy() for tag in self.tags]
-            for tag in serializable_tags:
-                tag["area"] = tag["area"].value  # Convert the area to an integer
-            tags_json = json.dumps(serializable_tags)
-            print(tags_json)
-            settings.setValue("tags", tags_json)
-        except Exception as e:
-            print(e)
-
-    def load_tags(self):
-        try:
-            settings = QSettings("testBench.cc", "readMemory")
-            tags_json = settings.value("tags")
-            if tags_json:
-                loaded_tags = json.loads(tags_json)
-                for tag in loaded_tags:
-                    tag["area"] = snap7.types.Areas(tag["area"])  # Convert the integer back to an area
-                self.tags = loaded_tags
-                for tag in self.tags:
-                    self.add_tag_to_table(tag)
-        except Exception as e:
-            print(e)
-
-    def update_global_tags(self):
-        table_tags = []
-        for row in range(self.tag_table.rowCount()):
-            name = self.tag_table.item(row, 0).text()
-            tag_type = self.tag_table.item(row, 1).text()
-            ip_address = self.tag_table.item(row, 2).text()
-
-            # set the tag area, byte and bit depending on the tag type and name
-            # a tag named 
-        
-            tag = {
-                "name": name,
-                "type": tag_type,
-                "ip_address": ip_address,
-                "area": snap7.types.Areas.PE,
-                "byte": 0,
-                "bit": 0,
-            }
-            table_tags.append(tag)
-
-        self.tags = table_tags
-
-def read_tag(plc, tag):
-    if tag["type"] == "bool":
-        data = plc.read_area(tag["area"], 0, tag["byte"], 1)
-        return get_bool(data, 0, tag["bit"])
-    elif tag["type"] == "int":
-        data = plc.read_area(tag["area"], 0, tag["byte"], 2)
-        return get_int(data, 0)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
